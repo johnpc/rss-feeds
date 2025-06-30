@@ -47,3 +47,6 @@ amplifyconfiguration*
 *.log
 *.md
 !README.md
+
+# cache directory
+/.cache
