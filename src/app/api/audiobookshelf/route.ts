@@ -10,13 +10,19 @@ interface Episode {
   pubDate?: string;
   publishedAt?: number;
   duration?: number;
-  audioFile?: { ino: string; metadata: { size: number }; mimeType: string };
+  audioFile?: { 
+    ino: string; 
+    metadata: { size: number }; 
+    mimeType: string;
+    metaTags?: { tagDescription?: string; tagArtist?: string };
+  };
 }
 
 interface AudioFile {
   ino: string;
   mimeType: string;
   metadata: { size: number };
+  metaTags?: { tagDescription?: string; tagArtist?: string; tagAlbumArtist?: string };
 }
 
 interface LibraryItem {
@@ -99,11 +105,13 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
           : FALLBACK_COVER;
         // Prefix episode title with creator name
         const title = creator ? `${creator} - ${ep.title}` : ep.title;
+        // Use tagDescription from metaTags if available, otherwise fall back to description
+        const description = ep.audioFile?.metaTags?.tagDescription || ep.description || item.media.metadata.description || '';
 
         episodes.push(`
     <item>
       <title>${escapeXml(title)}</title>
-      <description>${escapeXml(ep.description || item.media.metadata.description || '')}</description>
+      <description>${escapeXml(description)}</description>
       <pubDate>${pubDate}</pubDate>
       <enclosure url="${escapeXml(audioUrl)}" length="${ep.audioFile?.metadata?.size || 0}" type="${ep.audioFile?.mimeType || 'audio/mpeg'}"/>
       <guid isPermaLink="false">${item.id}-${ep.id}</guid>
@@ -138,12 +146,13 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
     const coverUrl = item.media.coverPath
       ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
       : FALLBACK_AUDIOBOOK_COVER;
-    const author = item.media.metadata.authorName || item.media.metadata.author || 'Unknown';
+    const author = item.media.metadata.authorName || item.media.metadata.author || audioFile.metaTags?.tagArtist || audioFile.metaTags?.tagAlbumArtist || 'Unknown';
+    const description = item.media.metadata.description || '';
 
     episodes.push(`
     <item>
       <title>${escapeXml(item.media.metadata.title)}</title>
-      <description>${escapeXml(item.media.metadata.description || '')} - by ${escapeXml(author)}</description>
+      <description>${escapeXml(description)}</description>
       <pubDate>${new Date(item.addedAt).toUTCString()}</pubDate>
       <enclosure url="${escapeXml(audioUrl)}" length="${audioFile.metadata.size}" type="${audioFile.mimeType}"/>
       <guid isPermaLink="false">${item.id}</guid>
