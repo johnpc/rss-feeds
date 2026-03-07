@@ -61,9 +61,11 @@ function formatDuration(seconds: number): string {
 }
 
 async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): Promise<LibraryItem[]> {
+  console.log('Fetching library:', libraryId, 'URL:', ABS_URL, 'Key length:', ABS_API_KEY?.length || 0);
   const res = await fetch(`${ABS_URL}/api/libraries/${libraryId}/items?limit=500`, {
     headers: { Authorization: `Bearer ${ABS_API_KEY}` },
   });
+  console.log('Library fetch status:', res.status);
   if (!res.ok) throw new Error(`Failed to fetch library: ${res.status}`);
   const data: LibraryResponse = await res.json();
 
@@ -195,7 +197,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Audiobookshelf RSS error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate RSS', message: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Failed to generate RSS', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        debug: { urlSet: !!ABS_URL, keyLength: ABS_API_KEY?.length || 0 }
+      },
       { status: 500 }
     );
   }
