@@ -84,8 +84,8 @@ async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): P
   return items;
 }
 
-const FALLBACK_COVER = 'https://jpcbucket.com.s3.amazonaws.com/podcast-placeholder.png';
-const FALLBACK_AUDIOBOOK_COVER = 'https://jpcbucket.com.s3.amazonaws.com/audiobook-placeholder.png';
+const FALLBACK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/podcast-placeholder.png';
+const FALLBACK_AUDIOBOOK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/audiobook-placeholder.png';
 
 function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string): string {
   const episodes: string[] = [];
