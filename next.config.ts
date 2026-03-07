@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   env: {
     TICKETMASTER_API_KEY: process.env.TICKETMASTER_API_KEY,
     RAPIDAPI_KEY: process.env.RAPIDAPI_KEY,
+    AUDIOBOOKSHELF_API_KEY: process.env.AUDIOBOOKSHELF_API_KEY,
+    AUDIOBOOKSHELF_URL: process.env.AUDIOBOOKSHELF_URL,
   },
   async headers() {
     return [
