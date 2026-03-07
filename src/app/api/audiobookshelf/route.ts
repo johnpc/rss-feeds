@@ -78,11 +78,15 @@ async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): P
   return items;
 }
 
+const FALLBACK_COVER = 'https://jpcbucket.com.s3.amazonaws.com/podcast-placeholder.png';
+const FALLBACK_AUDIOBOOK_COVER = 'https://jpcbucket.com.s3.amazonaws.com/audiobook-placeholder.png';
+
 function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string): string {
   const episodes: string[] = [];
 
   for (const item of items) {
     if (item.media.episodes) {
+      const creator = item.media.metadata.author || '';
       for (const ep of item.media.episodes) {
         const ino = ep.audioFile?.ino;
         if (!ino) continue;
@@ -92,17 +96,19 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
           : new Date(item.addedAt).toUTCString();
         const coverUrl = item.media.coverPath
           ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
-          : '';
+          : FALLBACK_COVER;
+        // Prefix episode title with creator name
+        const title = creator ? `${creator} - ${ep.title}` : ep.title;
 
         episodes.push(`
     <item>
-      <title>${escapeXml(ep.title)}</title>
+      <title>${escapeXml(title)}</title>
       <description>${escapeXml(ep.description || item.media.metadata.description || '')}</description>
       <pubDate>${pubDate}</pubDate>
       <enclosure url="${escapeXml(audioUrl)}" length="${ep.audioFile?.metadata?.size || 0}" type="${ep.audioFile?.mimeType || 'audio/mpeg'}"/>
       <guid isPermaLink="false">${item.id}-${ep.id}</guid>
       ${ep.duration ? `<itunes:duration>${formatDuration(ep.duration)}</itunes:duration>` : ''}
-      ${coverUrl ? `<itunes:image href="${escapeXml(coverUrl)}"/>` : ''}
+      <itunes:image href="${escapeXml(coverUrl)}"/>
     </item>`);
       }
     }
@@ -114,6 +120,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
     <title>${escapeXml(libraryName)}</title>
     <link>${escapeXml(baseUrl)}</link>
     <description>Audiobookshelf library: ${escapeXml(libraryName)}</description>
+    <itunes:image href="${FALLBACK_COVER}"/>
     <atom:link href="${escapeXml(baseUrl)}" rel="self" type="application/rss+xml"/>
     ${episodes.join('')}
   </channel>
@@ -130,7 +137,7 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
     const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${audioFile.ino}?token=${ABS_API_KEY}`;
     const coverUrl = item.media.coverPath
       ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
-      : '';
+      : FALLBACK_AUDIOBOOK_COVER;
     const author = item.media.metadata.authorName || item.media.metadata.author || 'Unknown';
 
     episodes.push(`
@@ -141,7 +148,7 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
       <enclosure url="${escapeXml(audioUrl)}" length="${audioFile.metadata.size}" type="${audioFile.mimeType}"/>
       <guid isPermaLink="false">${item.id}</guid>
       ${item.media.duration ? `<itunes:duration>${formatDuration(item.media.duration)}</itunes:duration>` : ''}
-      ${coverUrl ? `<itunes:image href="${escapeXml(coverUrl)}"/>` : ''}
+      <itunes:image href="${escapeXml(coverUrl)}"/>
       <itunes:author>${escapeXml(author)}</itunes:author>
     </item>`);
   }
@@ -152,6 +159,7 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
     <title>${escapeXml(libraryName)}</title>
     <link>${escapeXml(baseUrl)}</link>
     <description>Audiobookshelf library: ${escapeXml(libraryName)}</description>
+    <itunes:image href="${FALLBACK_AUDIOBOOK_COVER}"/>
     <atom:link href="${escapeXml(baseUrl)}" rel="self" type="application/rss+xml"/>
     ${episodes.join('')}
   </channel>
