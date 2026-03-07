@@ -10,11 +10,10 @@ interface Episode {
   pubDate?: string;
   publishedAt?: number;
   duration?: number;
-  audioFile?: { metadata: { size: number }; mimeType: string };
-  audioTrack?: { ino: string; mimeType: string };
+  audioFile?: { ino: string; metadata: { size: number }; mimeType: string };
 }
 
-interface Track {
+interface AudioFile {
   ino: string;
   mimeType: string;
   metadata: { size: number };
@@ -33,7 +32,7 @@ interface LibraryItem {
     };
     coverPath?: string;
     episodes?: Episode[];
-    tracks?: Track[];
+    audioFiles?: AudioFile[];
     duration?: number;
     size?: number;
   };
@@ -61,27 +60,22 @@ function formatDuration(seconds: number): string {
 }
 
 async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): Promise<LibraryItem[]> {
-  console.log('Fetching library:', libraryId, 'URL:', ABS_URL, 'Key length:', ABS_API_KEY?.length || 0);
   const res = await fetch(`${ABS_URL}/api/libraries/${libraryId}/items?limit=500`, {
     headers: { Authorization: `Bearer ${ABS_API_KEY}` },
   });
-  console.log('Library fetch status:', res.status);
   if (!res.ok) throw new Error(`Failed to fetch library: ${res.status}`);
   const data: LibraryResponse = await res.json();
 
-  if (type === 'podcast') {
-    // Fetch each item with episodes included
-    const items = await Promise.all(
-      data.results.map(async (item) => {
-        const itemRes = await fetch(`${ABS_URL}/api/items/${item.id}?include=episodes`, {
-          headers: { Authorization: `Bearer ${ABS_API_KEY}` },
-        });
-        return itemRes.ok ? itemRes.json() : item;
-      })
-    );
-    return items;
-  }
-  return data.results;
+  // Fetch each item individually to get full details (episodes for podcasts, audioFiles for books)
+  const items = await Promise.all(
+    data.results.map(async (item) => {
+      const itemRes = await fetch(`${ABS_URL}/api/items/${item.id}${type === 'podcast' ? '?include=episodes' : ''}`, {
+        headers: { Authorization: `Bearer ${ABS_API_KEY}` },
+      });
+      return itemRes.ok ? itemRes.json() : item;
+    })
+  );
+  return items;
 }
 
 function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string): string {
@@ -90,7 +84,9 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
   for (const item of items) {
     if (item.media.episodes) {
       for (const ep of item.media.episodes) {
-        const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${ep.audioTrack?.ino}?token=${ABS_API_KEY}`;
+        const ino = ep.audioFile?.ino;
+        if (!ino) continue;
+        const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${ino}?token=${ABS_API_KEY}`;
         const pubDate = ep.publishedAt
           ? new Date(ep.publishedAt).toUTCString()
           : new Date(item.addedAt).toUTCString();
@@ -103,7 +99,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
       <title>${escapeXml(ep.title)}</title>
       <description>${escapeXml(ep.description || item.media.metadata.description || '')}</description>
       <pubDate>${pubDate}</pubDate>
-      <enclosure url="${escapeXml(audioUrl)}" length="${ep.audioFile?.metadata.size || 0}" type="${ep.audioTrack?.mimeType || 'audio/mpeg'}"/>
+      <enclosure url="${escapeXml(audioUrl)}" length="${ep.audioFile?.metadata?.size || 0}" type="${ep.audioFile?.mimeType || 'audio/mpeg'}"/>
       <guid isPermaLink="false">${item.id}-${ep.id}</guid>
       ${ep.duration ? `<itunes:duration>${formatDuration(ep.duration)}</itunes:duration>` : ''}
       ${coverUrl ? `<itunes:image href="${escapeXml(coverUrl)}"/>` : ''}
@@ -128,10 +124,10 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
   const episodes: string[] = [];
 
   for (const item of items) {
-    const track = item.media.tracks?.[0];
-    if (!track) continue;
+    const audioFile = item.media.audioFiles?.[0];
+    if (!audioFile) continue;
 
-    const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${track.ino}?token=${ABS_API_KEY}`;
+    const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${audioFile.ino}?token=${ABS_API_KEY}`;
     const coverUrl = item.media.coverPath
       ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
       : '';
@@ -142,7 +138,7 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
       <title>${escapeXml(item.media.metadata.title)}</title>
       <description>${escapeXml(item.media.metadata.description || '')} - by ${escapeXml(author)}</description>
       <pubDate>${new Date(item.addedAt).toUTCString()}</pubDate>
-      <enclosure url="${escapeXml(audioUrl)}" length="${track.metadata.size}" type="${track.mimeType}"/>
+      <enclosure url="${escapeXml(audioUrl)}" length="${audioFile.metadata.size}" type="${audioFile.mimeType}"/>
       <guid isPermaLink="false">${item.id}</guid>
       ${item.media.duration ? `<itunes:duration>${formatDuration(item.media.duration)}</itunes:duration>` : ''}
       ${coverUrl ? `<itunes:image href="${escapeXml(coverUrl)}"/>` : ''}
