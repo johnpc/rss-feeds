@@ -167,28 +167,36 @@ const LIBRARIES: Record<string, { id: string; type: 'podcast' | 'book' }> = {
 };
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const libraryName = searchParams.get('library')?.toLowerCase();
+  try {
+    const { searchParams } = new URL(request.url);
+    const libraryName = searchParams.get('library')?.toLowerCase();
 
-  if (!libraryName || !LIBRARIES[libraryName]) {
+    if (!libraryName || !LIBRARIES[libraryName]) {
+      return NextResponse.json(
+        { error: 'Invalid library. Use: pinchflat, audiobooks, or podcasts' },
+        { status: 400 }
+      );
+    }
+
+    const lib = LIBRARIES[libraryName];
+    const items = await fetchLibraryItems(lib.id, lib.type);
+    const baseUrl = request.url;
+
+    const rss = lib.type === 'podcast'
+      ? buildPodcastRss(items, libraryName, baseUrl)
+      : buildAudiobookRss(items, libraryName, baseUrl);
+
+    return new NextResponse(rss, {
+      headers: {
+        'Content-Type': 'application/rss+xml',
+        'Cache-Control': 'public, max-age=1800',
+      },
+    });
+  } catch (error) {
+    console.error('Audiobookshelf RSS error:', error);
     return NextResponse.json(
-      { error: 'Invalid library. Use: pinchflat, audiobooks, or podcasts' },
-      { status: 400 }
+      { error: 'Failed to generate RSS', message: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
     );
   }
-
-  const lib = LIBRARIES[libraryName];
-  const items = await fetchLibraryItems(lib.id, lib.type);
-  const baseUrl = request.url;
-
-  const rss = lib.type === 'podcast'
-    ? buildPodcastRss(items, libraryName, baseUrl)
-    : buildAudiobookRss(items, libraryName, baseUrl);
-
-  return new NextResponse(rss, {
-    headers: {
-      'Content-Type': 'application/rss+xml',
-      'Cache-Control': 'public, max-age=1800',
-    },
-  });
 }
