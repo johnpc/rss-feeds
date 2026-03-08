@@ -93,7 +93,11 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
 
   for (const item of items) {
     if (item.media.episodes) {
-      const creator = item.media.metadata.author || '';
+      // Extract channel name from podcast title (format: "Channel - Date Title")
+      const podcastTitle = item.media.metadata.title || '';
+      const channelMatch = podcastTitle.match(/^(.+?) - \d{4}-\d{2}-\d{2}/);
+      const creator = channelMatch ? channelMatch[1] : '';
+      
       for (const ep of item.media.episodes) {
         const ino = ep.audioFile?.ino;
         if (!ino) continue;
@@ -104,7 +108,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
         const coverUrl = item.media.coverPath
           ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
           : FALLBACK_COVER;
-        // Prefix episode title with creator name
+        // Use episode title directly, prefix with creator only if extracted
         const title = creator ? `${creator} - ${ep.title}` : ep.title;
         // Use tagDescription from metaTags if available, otherwise fall back to description
         const description = ep.audioFile?.metaTags?.tagDescription || ep.description || item.media.metadata.description || '';
