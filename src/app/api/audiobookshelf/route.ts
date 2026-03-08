@@ -87,8 +87,9 @@ async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): P
 const FALLBACK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/podcast-placeholder.png';
 const FALLBACK_AUDIOBOOK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/audiobook-placeholder.png';
 
-function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string): string {
+function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string, maxAgeDays?: number): string {
   const episodes: string[] = [];
+  const cutoff = maxAgeDays ? Date.now() - maxAgeDays * 24 * 60 * 60 * 1000 : 0;
 
   for (const item of items) {
     if (item.media.episodes) {
@@ -96,10 +97,10 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
       for (const ep of item.media.episodes) {
         const ino = ep.audioFile?.ino;
         if (!ino) continue;
+        const pubTimestamp = ep.publishedAt || item.addedAt;
+        if (maxAgeDays && pubTimestamp < cutoff) continue;
         const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${ino}?token=${ABS_API_KEY}`;
-        const pubDate = ep.publishedAt
-          ? new Date(ep.publishedAt).toUTCString()
-          : new Date(item.addedAt).toUTCString();
+        const pubDate = new Date(pubTimestamp).toUTCString();
         const coverUrl = item.media.coverPath
           ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
           : FALLBACK_COVER;
@@ -175,8 +176,8 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
 </rss>`;
 }
 
-const LIBRARIES: Record<string, { id: string; type: 'podcast' | 'book' }> = {
-  pinchflat: { id: '891320d6-0376-4506-82e0-b50ee81b5dfa', type: 'podcast' },
+const LIBRARIES: Record<string, { id: string; type: 'podcast' | 'book'; maxAgeDays?: number }> = {
+  pinchflat: { id: '891320d6-0376-4506-82e0-b50ee81b5dfa', type: 'podcast', maxAgeDays: 7 },
   audiobooks: { id: 'f922a634-4676-4e80-a578-d2727c765abf', type: 'book' },
   podcasts: { id: 'f2ab7c35-4f9d-4c95-9b59-ec457140ab46', type: 'podcast' },
 };
@@ -198,7 +199,7 @@ export async function GET(request: NextRequest) {
     const baseUrl = request.url;
 
     const rss = lib.type === 'podcast'
-      ? buildPodcastRss(items, libraryName, baseUrl)
+      ? buildPodcastRss(items, libraryName, baseUrl, lib.maxAgeDays)
       : buildAudiobookRss(items, libraryName, baseUrl);
 
     return new NextResponse(rss, {
