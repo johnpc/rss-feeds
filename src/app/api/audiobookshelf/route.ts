@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
 
     const lib = LIBRARIES[libraryName];
     const items = await fetchLibraryItems(lib.id, lib.type);
-    const baseUrl = request.url;
+    const baseUrl = `https://rss-feeds.jpc.io/api/audiobookshelf?library=${libraryName}`;
 
     const rss = lib.type === 'podcast'
       ? buildPodcastRss(items, libraryName, baseUrl, lib.maxAgeDays)
