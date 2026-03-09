@@ -14,6 +14,7 @@ interface Episode {
     ino: string; 
     metadata: { size: number }; 
     mimeType: string;
+    duration?: number;
     metaTags?: { tagDescription?: string; tagArtist?: string };
   };
 }
@@ -21,6 +22,7 @@ interface Episode {
 interface AudioFile {
   ino: string;
   mimeType: string;
+  duration?: number;
   metadata: { size: number };
   metaTags?: { tagDescription?: string; tagArtist?: string; tagAlbumArtist?: string };
 }
@@ -120,7 +122,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
       <pubDate>${pubDate}</pubDate>
       <enclosure url="${escapeXml(audioUrl)}" length="${ep.audioFile?.metadata?.size || 0}" type="${ep.audioFile?.mimeType || 'audio/mpeg'}"/>
       <guid isPermaLink="false">${item.id}-${ep.id}</guid>
-      ${ep.duration ? `<itunes:duration>${formatDuration(ep.duration)}</itunes:duration>` : ''}
+      ${ep.duration || ep.audioFile?.duration ? `<itunes:duration>${formatDuration(ep.duration || ep.audioFile?.duration || 0)}</itunes:duration>` : ''}
       <itunes:image href="${escapeXml(coverUrl)}"/>
     </item>`);
       }
@@ -161,7 +163,7 @@ function buildAudiobookRss(items: LibraryItem[], libraryName: string, baseUrl: s
       <pubDate>${new Date(item.addedAt).toUTCString()}</pubDate>
       <enclosure url="${escapeXml(audioUrl)}" length="${audioFile.metadata.size}" type="${audioFile.mimeType}"/>
       <guid isPermaLink="false">${item.id}</guid>
-      ${item.media.duration ? `<itunes:duration>${formatDuration(item.media.duration)}</itunes:duration>` : ''}
+      ${item.media.duration || audioFile.duration ? `<itunes:duration>${formatDuration(item.media.duration || audioFile.duration || 0)}</itunes:duration>` : ''}
       <itunes:image href="${escapeXml(coverUrl)}"/>
       <itunes:author>${escapeXml(author)}</itunes:author>
     </item>`);
