@@ -15,7 +15,7 @@ interface Episode {
     metadata: { size: number }; 
     mimeType: string;
     duration?: number;
-    metaTags?: { tagDescription?: string; tagArtist?: string };
+    metaTags?: { tagDescription?: string; tagArtist?: string; tagDate?: string };
   };
 }
 
