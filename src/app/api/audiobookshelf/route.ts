@@ -89,33 +89,46 @@ async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): P
 const FALLBACK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/podcast-placeholder.png';
 const FALLBACK_AUDIOBOOK_COVER = 'https://s3.us-west-2.amazonaws.com/jpcbucket.com/audiobook-placeholder.png';
 
+function parseDateFromTitle(title: string): Date | null {
+  const match = title.match(/(\d{4}-\d{2}-\d{2})/);
+  return match ? new Date(match[1]) : null;
+}
+
 function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: string, maxAgeDays?: number): string {
-  const episodes: string[] = [];
   const cutoff = maxAgeDays ? Date.now() - maxAgeDays * 24 * 60 * 60 * 1000 : 0;
+
+  interface EpisodeData {
+    xml: string;
+    sortDate: number;
+  }
+  const episodeData: EpisodeData[] = [];
 
   for (const item of items) {
     if (item.media.episodes) {
-      // Extract channel name from podcast title (format: "Channel - Date Title")
       const podcastTitle = item.media.metadata.title || '';
       const channelMatch = podcastTitle.match(/^(.+?) - \d{4}-\d{2}-\d{2}/);
       const creator = channelMatch ? channelMatch[1] : '';
+      const titleDate = parseDateFromTitle(podcastTitle);
       
       for (const ep of item.media.episodes) {
         const ino = ep.audioFile?.ino;
         if (!ino) continue;
-        const pubTimestamp = ep.publishedAt || item.addedAt;
-        if (maxAgeDays && pubTimestamp < cutoff) continue;
+        
+        // Use parsed date from title, fall back to publishedAt or addedAt
+        const sortDate = titleDate?.getTime() || ep.publishedAt || item.addedAt;
+        if (maxAgeDays && sortDate < cutoff) continue;
+        
         const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${ino}?token=${ABS_API_KEY}`;
-        const pubDate = new Date(pubTimestamp).toUTCString();
+        const pubDate = new Date(sortDate).toUTCString();
         const coverUrl = item.media.coverPath
           ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
           : FALLBACK_COVER;
-        // Use episode title directly, prefix with creator only if extracted
         const title = creator ? `${creator} - ${ep.title}` : ep.title;
-        // Use tagDescription from metaTags if available, otherwise fall back to description
         const description = ep.audioFile?.metaTags?.tagDescription || ep.description || item.media.metadata.description || '';
 
-        episodes.push(`
+        episodeData.push({
+          sortDate,
+          xml: `
     <item>
       <title>${escapeXml(title)}</title>
       <description>${escapeXml(description)}</description>
@@ -124,10 +137,14 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
       <guid isPermaLink="false">${item.id}-${ep.id}</guid>
       ${ep.duration || ep.audioFile?.duration ? `<itunes:duration>${formatDuration(ep.duration || ep.audioFile?.duration || 0)}</itunes:duration>` : ''}
       <itunes:image href="${escapeXml(coverUrl)}"/>
-    </item>`);
+    </item>`
+        });
       }
     }
   }
+
+  // Sort by date descending (newest first)
+  episodeData.sort((a, b) => b.sortDate - a.sortDate);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -137,7 +154,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
     <description>Audiobookshelf library: ${escapeXml(libraryName)}</description>
     <itunes:image href="${FALLBACK_COVER}"/>
     <atom:link href="${escapeXml(baseUrl)}" rel="self" type="application/rss+xml"/>
-    ${episodes.join('')}
+    ${episodeData.map(e => e.xml).join('')}
   </channel>
 </rss>`;
 }
