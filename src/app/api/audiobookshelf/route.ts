@@ -145,8 +145,17 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
     }
   }
 
+  // Dedupe by episode title
+  const seen = new Set<string>();
+  const uniqueEpisodes = episodeData.filter(e => {
+    const key = e.xml.match(/<title>([^<]+)<\/title>/)?.[1] || '';
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   // Sort by date descending (newest first)
-  episodeData.sort((a, b) => b.sortDate - a.sortDate);
+  uniqueEpisodes.sort((a, b) => b.sortDate - a.sortDate);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -156,7 +165,7 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
     <description>Audiobookshelf library: ${escapeXml(libraryName)}</description>
     <itunes:image href="${FALLBACK_COVER}"/>
     <atom:link href="${escapeXml(baseUrl)}" rel="self" type="application/rss+xml"/>
-    ${episodeData.map(e => e.xml).join('')}
+    ${uniqueEpisodes.map(e => e.xml).join('')}
   </channel>
 </rss>`;
 }
