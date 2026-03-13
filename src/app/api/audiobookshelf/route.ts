@@ -122,8 +122,8 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
         const coverUrl = item.media.coverPath
           ? `${ABS_URL}/api/items/${item.id}/cover?token=${ABS_API_KEY}`
           : FALLBACK_COVER;
-        // Use episode title directly - channel extraction is unreliable due to ABS grouping issues
-        const title = ep.title;
+        const artist = ep.audioFile?.metaTags?.tagArtist;
+        const title = artist ? `${artist} - ${ep.title}` : ep.title;
         const description = ep.audioFile?.metaTags?.tagDescription || ep.description || item.media.metadata.description || '';
 
         episodeData.push({
