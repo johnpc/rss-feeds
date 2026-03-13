@@ -106,15 +106,15 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
 
   for (const item of items) {
     if (item.media.episodes) {
-      const podcastTitle = item.media.metadata.title || '';
-      const titleDate = parseDateFromTitle(podcastTitle);
-      
       for (const ep of item.media.episodes) {
         const ino = ep.audioFile?.ino;
         if (!ino) continue;
         
-        // Use parsed date from title, fall back to publishedAt or addedAt
-        const sortDate = titleDate?.getTime() || ep.publishedAt || item.addedAt;
+        // Use episode's tagDate, fall back to item title date, then publishedAt/addedAt
+        const epTagDate = ep.audioFile?.metaTags?.tagDate;
+        const epDate = epTagDate ? new Date(epTagDate).getTime() : null;
+        const itemTitleDate = parseDateFromTitle(item.media.metadata.title || '');
+        const sortDate = epDate || itemTitleDate?.getTime() || ep.publishedAt || item.addedAt;
         if (maxAgeDays && sortDate < cutoff) continue;
         
         const audioUrl = `${ABS_URL}/api/items/${item.id}/file/${ino}?token=${ABS_API_KEY}`;
