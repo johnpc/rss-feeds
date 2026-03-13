@@ -68,7 +68,8 @@ function formatDuration(seconds: number): string {
 }
 
 async function fetchLibraryItems(libraryId: string, type: 'podcast' | 'book'): Promise<LibraryItem[]> {
-  const res = await fetch(`${ABS_URL}/api/libraries/${libraryId}/items?limit=500&sort=addedAt&desc=1`, {
+  // Fetch all items - sorting happens client-side by parsed date from title
+  const res = await fetch(`${ABS_URL}/api/libraries/${libraryId}/items?limit=0`, {
     headers: { Authorization: `Bearer ${ABS_API_KEY}` },
   });
   if (!res.ok) throw new Error(`Failed to fetch library: ${res.status}`);
