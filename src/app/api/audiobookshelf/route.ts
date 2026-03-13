@@ -107,8 +107,6 @@ function buildPodcastRss(items: LibraryItem[], libraryName: string, baseUrl: str
   for (const item of items) {
     if (item.media.episodes) {
       const podcastTitle = item.media.metadata.title || '';
-      const channelMatch = podcastTitle.match(/^(.+?) - \d{4}-\d{2}-\d{2}/);
-      const creator = channelMatch ? channelMatch[1] : '';
       const titleDate = parseDateFromTitle(podcastTitle);
       
       for (const ep of item.media.episodes) {
